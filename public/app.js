@@ -414,7 +414,7 @@ function toast(kind, message, options) {
 function openMergeModal(pr) {
   state.modalPr = pr;
   const root = $('modal-root');
-  const method = localStorage.getItem('prdeck.method') || 'merge';
+  const method = localStorage.getItem('prdeck.method') || 'squash';
   const deleteDefault = !pr.isCrossRepository;
 
   root.hidden = false;
@@ -463,7 +463,7 @@ async function confirmMerge(button) {
   const pr = state.modalPr;
   if (!pr) return;
   const checked = document.querySelector('input[name="method"]:checked');
-  const method = checked ? checked.value : 'merge';
+  const method = checked ? checked.value : 'squash';
   const deleteBranch = $('delete-branch') ? $('delete-branch').checked : false;
 
   localStorage.setItem('prdeck.method', method);
