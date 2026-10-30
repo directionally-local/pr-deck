@@ -183,6 +183,9 @@ function normalizeCheck(node) {
       else if (conclusion === 'NEUTRAL' || conclusion === 'STALE') state = 'neutral';
       else if (conclusion === 'SKIPPED') state = 'skipped';
       else if (conclusion === 'CANCELLED') state = 'cancelled';
+      // A run waiting for a maintainer's approval hasn't failed: GitHub marks the PR
+      // UNSTABLE, but nothing ran. Keep it apart so it isn't reported as a failure.
+      else if (conclusion === 'ACTION_REQUIRED') state = 'action_required';
       else if (!conclusion) state = 'pending';
       else state = 'failure';
     }
@@ -224,13 +227,14 @@ function normalizeCheck(node) {
 }
 
 function summarizeChecks(items) {
-  const counts = { total: items.length, success: 0, failure: 0, pending: 0, neutral: 0, skipped: 0, cancelled: 0 };
+  const counts = { total: items.length, success: 0, failure: 0, pending: 0, neutral: 0, skipped: 0, cancelled: 0, action_required: 0 };
   for (const item of items) {
     if (Object.prototype.hasOwnProperty.call(counts, item.state)) counts[item.state] += 1;
   }
   let state = 'none';
   if (counts.total === 0) state = 'none';
   else if (counts.failure > 0) state = 'failure';
+  else if (counts.action_required > 0) state = 'action_required';
   else if (counts.pending > 0) state = 'pending';
   else if (counts.success > 0) state = 'success';
   else state = 'neutral';
@@ -244,6 +248,11 @@ function deriveStatus(pr) {
   }
   if (pr.mergeStateStatus === 'BEHIND') return { key: 'behind', label: 'Behind base', tone: 'attention' };
   if (pr.mergeStateStatus === 'UNSTABLE' || pr.checks.state === 'failure') {
+    // Nothing failed, but a run is waiting for a maintainer to approve it. GitHub still
+    // calls the PR UNSTABLE, so say what is actually needed instead of "Checks failing".
+    if (pr.checks.failure === 0 && pr.checks.action_required > 0) {
+      return { key: 'approval', label: 'Needs approval', tone: 'attention' };
+    }
     return { key: 'failing', label: 'Checks failing', tone: 'danger' };
   }
   if (pr.mergeStateStatus === 'BLOCKED') {
@@ -307,6 +316,8 @@ function normalizePr(node, repo) {
     && pr.mergeStateStatus !== 'DIRTY'
     && pr.mergeStateStatus !== 'DRAFT';
   pr.canUpdateBranch = pr.mergeStateStatus === 'BEHIND' && !pr.isCrossRepository;
+  // A run waiting for approval can be started from here, if we know which run it is.
+  pr.canApprove = checks.some((check) => check.state === 'action_required' && check.runId);
   return pr;
 }
 
@@ -402,10 +413,11 @@ async function buildOverview(owner, options) {
     reposWithPrs: repos.length,
     prs: prs.length,
     ready: prs.filter((p) => p.status.key === 'ready').length,
-    blocked: prs.filter((p) => ['blocked', 'conflicts', 'behind', 'failing'].includes(p.status.key)).length,
+    blocked: prs.filter((p) => ['blocked', 'conflicts', 'behind', 'failing', 'approval'].includes(p.status.key)).length,
     ciRunning: prs.filter((p) => p.checks.pending > 0).length,
     drafts: prs.filter((p) => p.isDraft).length,
     failing: prs.filter((p) => p.checks.failure > 0).length,
+    needsApproval: prs.filter((p) => p.checks.action_required > 0).length,
   };
 
   const viewer = await getViewer();
@@ -511,6 +523,23 @@ async function handleRerun(body) {
   return { message: 'Re-running failed jobs.' };
 }
 
+/**
+ * Start a run that GitHub is holding for approval (a bot's PR, a first-time contributor).
+ * The run exists but has no jobs until someone approves it.
+ */
+async function handleApprove(body) {
+  const owner = String(body.owner || '').trim();
+  const repo = String(body.repo || '').trim();
+  const runId = String(body.runId || '').trim();
+  if (!owner || !repo || !runId) throw new HttpError(400, 'owner, repo and runId are required.');
+  const res = await apiFetch('/repos/' + owner + '/' + repo + '/actions/runs/' + encodeURIComponent(runId) + '/approve', {
+    method: 'POST',
+  });
+  if (!res.ok) throw new HttpError(res.status, apiMessage(res, 'Could not approve the run.'));
+  cache.delete(owner.toLowerCase());
+  return { message: 'Approved; the run is starting.' };
+}
+
 /* ------------------------------------------------------------------ http */
 
 function sendJson(res, status, payload) {
@@ -610,6 +639,10 @@ async function handleApi(req, res, url) {
 
   if (route === '/api/rerun' && req.method === 'POST') {
     return sendJson(res, 200, await handleRerun(await readJson(req)));
+  }
+
+  if (route === '/api/approve' && req.method === 'POST') {
+    return sendJson(res, 200, await handleApprove(await readJson(req)));
   }
 
   throw new HttpError(404, 'Unknown endpoint: ' + route);

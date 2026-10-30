@@ -287,8 +287,10 @@ function detailPanel(pr) {
     : '<li class="check-item"><span class="tone-muted">' + icon('dotFill') + '</span><span class="check-name">No checks reported for this commit</span></li>';
 
   const failedRuns = [];
+  const approvalRuns = [];
   for (const item of items) {
     if (item.state === 'failure' && item.runId && !failedRuns.includes(item.runId)) failedRuns.push(item.runId);
+    if (item.state === 'action_required' && item.runId && !approvalRuns.includes(item.runId)) approvalRuns.push(item.runId);
   }
 
   return '<div class="pr-detail">'
@@ -297,6 +299,9 @@ function detailPanel(pr) {
     + '<div class="panel-title"><span>Checks</span><span class="spacer"></span>'
     + '<a href="' + esc(pr.url) + '/checks" target="_blank" rel="noreferrer">View on GitHub ' + icon('linkExternal') + '</a></div>'
     + '<ul class="check-list">' + rows + '</ul>'
+    + (approvalRuns.length > 0
+      ? '<div class="detail-actions" style="margin-top:8px"><button type="button" class="btn btn-sm" data-action="approve" data-id="' + esc(pr.id) + '" data-run="' + esc(approvalRuns[0]) + '">' + icon('lock') + 'Approve and run</button></div>'
+      : '')
     + (failedRuns.length > 0
       ? '<div class="detail-actions" style="margin-top:8px"><button type="button" class="btn btn-sm" data-action="rerun" data-id="' + esc(pr.id) + '" data-run="' + esc(failedRuns[0]) + '">Re-run failed jobs</button></div>'
       : '')
@@ -333,6 +338,7 @@ function checkRow(check) {
   else if (check.state === 'pending') stateIcon = spinner('spinner-sm tone-attention');
   else if (check.state === 'skipped') stateIcon = icon('skip', 'tone-muted');
   else if (check.state === 'cancelled') stateIcon = icon('x', 'tone-muted');
+  else if (check.state === 'action_required') stateIcon = icon('lock', 'tone-attention');
 
   const dur = duration(check.startedAt, check.completedAt);
   return '<li class="check-item">'
@@ -530,6 +536,24 @@ async function doRerun(pr, runId, button) {
   }
 }
 
+async function doApprove(pr, runId, button) {
+  button.disabled = true;
+  button.innerHTML = spinner('spinner-sm') + 'Approving…';
+  try {
+    await post('/api/approve', {
+      owner: pr.repo.nameWithOwner.split('/')[0],
+      repo: pr.repo.name,
+      runId,
+    });
+    toast('success', 'Approved the run for ' + pr.repo.nameWithOwner + '#' + pr.number, { link: pr.url });
+    setTimeout(() => load(state.owner, { refresh: true, silent: true }), 2500);
+  } catch (err) {
+    button.disabled = false;
+    button.textContent = 'Approve and run';
+    toast('error', err.message, { link: pr.url });
+  }
+}
+
 function prById(id) {
   if (!state.data) return null;
   return state.data.prs.find((pr) => pr.id === id) || null;
@@ -651,6 +675,11 @@ function bind() {
     if (action === 'rerun') {
       const pr = prById(target.dataset.id);
       if (pr) doRerun(pr, target.dataset.run, target);
+    }
+
+    if (action === 'approve') {
+      const pr = prById(target.dataset.id);
+      if (pr) doApprove(pr, target.dataset.run, target);
     }
   });
 

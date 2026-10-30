@@ -14,9 +14,9 @@ Reviewing a busy org means opening repo after repo, tab after tab, just to answe
 
 - **One screen, every repo.** All open PRs grouped by repository, with counts, branch names, authors, diff stats and age.
 - **Merge from here.** Merge commit, squash, or rebase, with an optional "delete branch after merge". A confirmation dialog shows the PR and the method before anything happens.
-- **See what is blocking.** Required reviews, changes requested, failing checks, merge conflicts, behind base branch, drafts — each PR gets a plain-language status.
+- **See what is blocking.** Required reviews, changes requested, failing checks, runs waiting for approval, merge conflicts, behind base branch, drafts — each PR gets a plain-language status.
 - **Live CI.** Per-check status with workflow name, duration and a link to the logs. Running checks animate; failed ones are called out.
-- **Fix it without leaving.** Re-run failed jobs, or update a branch that is behind its base.
+- **Fix it without leaving.** Re-run failed jobs, approve a run GitHub is holding for approval, or update a branch that is behind its base.
 - **Always a link to GitHub.** Every PR row has an *Open* button, and anything that genuinely needs the GitHub UI (resolving conflicts, approving, editing) links straight to the PR.
 - **Feels like GitHub.** Primer colours, labels, buttons and icons, in light and dark themes.
 - **Honest feedback.** Loading skeletons, progress bar, per-action spinners, and success/error toasts that link to the PR when something fails.
@@ -59,7 +59,7 @@ To use a different token, set `GITHUB_TOKEN` (or `GH_TOKEN`) before starting:
 GITHUB_TOKEN=ghp_xxx npm start
 ```
 
-Scopes needed: `repo` (read PRs, merge) and `read:org` (list org repositories). `workflow` is required only for the *Re-run failed jobs* button.
+Scopes needed: `repo` (read PRs, merge) and `read:org` (list org repositories). `workflow` is required only for the *Re-run failed jobs* and *Approve and run* buttons.
 
 ## Keyboard
 
