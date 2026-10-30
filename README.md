@@ -18,7 +18,6 @@ Reviewing a busy org means opening repo after repo, tab after tab, just to answe
 - **Live CI.** Per-check status with workflow name, duration and a link to the logs. Running checks animate; failed ones are called out.
 - **Fix it without leaving.** Re-run failed jobs, or update a branch that is behind its base.
 - **Always a link to GitHub.** Every PR row has an *Open* button, and anything that genuinely needs the GitHub UI (resolving conflicts, approving, editing) links straight to the PR.
-- **Filters that matter.** Ready / Blocked / CI running / Failing / Drafts, plus repository, "only mine", and free-text search across title, number, author and branch.
 - **Feels like GitHub.** Primer colours, labels, buttons and icons, in light and dark themes.
 - **Honest feedback.** Loading skeletons, progress bar, per-action spinners, and success/error toasts that link to the PR when something fails.
 - **Zero dependencies.** No build step, no `node_modules`. One Node file and three static assets.
@@ -66,7 +65,6 @@ Scopes needed: `repo` (read PRs, merge) and `read:org` (list org repositories). 
 
 | Key | Action |
 | --- | --- |
-| `/` | Focus the filter box |
 | `r` | Refresh |
 | `Esc` | Close the merge dialog |
 

@@ -42,28 +42,6 @@
 </header>
 
 <main class="app-main">
-  <section class="summary" id="summary" hidden></section>
-
-  <section class="toolbar" id="toolbar" hidden>
-    <div class="toolbar-row">
-      <div class="input-wrap input-wrap-sm">
-        <svg class="input-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
-        <input id="search-input" class="input" type="search" placeholder="Filter by title, #number, author or branch" aria-label="Filter pull requests" />
-      </div>
-      <div class="chips" id="chips" role="group" aria-label="Filter by status"></div>
-      <div class="toolbar-right">
-        <select id="repo-select" class="select" aria-label="Filter by repository"></select>
-        <label class="check"><input type="checkbox" id="mine-toggle" /> Only mine</label>
-      </div>
-    </div>
-    <div class="toolbar-meta">
-      <span id="updated" class="muted"></span>
-      <label class="check"><input type="checkbox" id="auto-toggle" checked /> Auto-refresh</label>
-      <span id="ratelimit" class="muted"></span>
-    </div>
-  </section>
-
-  <div id="banner" class="banner" hidden></div>
   <div id="content" class="content"></div>
 </main>
 
