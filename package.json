@@ -1,0 +1,37 @@
+{
+  "name": "pr-deck",
+  "version": "1.0.0",
+  "description": "Every open pull request in a GitHub org or user account, on one screen. Review CI, merge, and jump to GitHub without opening a single repo.",
+  "type": "module",
+  "bin": {
+    "pr-deck": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "server.js",
+    "public"
+  ],
+  "keywords": [
+    "github",
+    "pull-requests",
+    "merge",
+    "dashboard",
+    "gh-cli",
+    "ci"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/directionally-local/pr-deck.git"
+  },
+  "homepage": "https://github.com/directionally-local/pr-deck#readme",
+  "bugs": {
+    "url": "https://github.com/directionally-local/pr-deck/issues"
+  }
+}
