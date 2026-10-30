@@ -26,7 +26,6 @@ const state = {
   data: null,
   loading: false,
   error: null,
-  filters: { q: '', status: 'all', repo: 'all', mine: false },
   expanded: new Set(),
   collapsedRepos: new Set(),
   busy: new Set(),
@@ -140,44 +139,11 @@ function setProgress(on) {
   $('progress').classList.toggle('active', !!on);
 }
 
-/* --------------------------------------------------------------- filters */
-
-function visiblePrs() {
-  if (!state.data) return [];
-  const q = state.filters.q.trim().toLowerCase();
-  const viewer = state.viewer || state.data.viewer;
-  return state.data.prs.filter((pr) => {
-    if (state.filters.repo !== 'all' && pr.repo.nameWithOwner !== state.filters.repo) return false;
-    if (state.filters.mine && (!viewer || !pr.author || pr.author.login !== viewer.login)) return false;
-    if (state.filters.status === 'ready' && pr.status.key !== 'ready') return false;
-    if (state.filters.status === 'blocked' && !['blocked', 'conflicts', 'behind', 'failing'].includes(pr.status.key)) return false;
-    if (state.filters.status === 'ci' && !(pr.checks.pending > 0)) return false;
-    if (state.filters.status === 'drafts' && !pr.isDraft) return false;
-    if (state.filters.status === 'failing' && !(pr.checks.failure > 0)) return false;
-    if (q) {
-      const haystack = [
-        pr.title,
-        '#' + pr.number,
-        String(pr.number),
-        pr.author ? pr.author.login : '',
-        pr.headRefName,
-        pr.baseRefName,
-        pr.repo.nameWithOwner,
-      ].join(' ').toLowerCase();
-      if (!haystack.includes(q)) return false;
-    }
-    return true;
-  });
-}
-
 /* --------------------------------------------------------------- render */
 
 function render() {
   renderViewer();
-  renderSummary();
-  renderToolbar();
   renderList();
-  renderMeta();
 }
 
 function renderViewer() {
@@ -190,83 +156,6 @@ function renderViewer() {
   node.hidden = false;
   node.innerHTML = '<img src="' + esc(viewer.avatarUrl) + '" alt="" width="20" height="20" />'
     + '<span><strong>' + esc(viewer.login) + '</strong> · gh CLI</span>';
-}
-
-function renderSummary() {
-  const node = $('summary');
-  if (!state.data) {
-    node.hidden = true;
-    return;
-  }
-  const stats = state.data.stats;
-  node.hidden = false;
-  const kind = state.data.type === 'org' ? 'organization' : 'user';
-  node.innerHTML = '<div class="summary-title">'
-    + '<span class="summary-owner">' + esc(state.data.owner) + '</span>'
-    + '<span class="label label-muted">' + kind + '</span>'
-    + '</div>'
-    + '<div class="summary-stats">'
-    + stat(stats.prs, 'open PRs', 'is-accent')
-    + stat(stats.ready, 'ready', 'is-success')
-    + stat(stats.blocked, 'blocked', 'is-attention')
-    + stat(stats.ciRunning, 'CI running', 'is-attention')
-    + stat(stats.drafts, 'drafts', '')
-    + '</div>';
-}
-
-function stat(value, label, cls) {
-  return '<span class="stat ' + (cls || '') + '"><span class="stat-value">' + value + '</span>' + esc(label) + '</span>';
-}
-
-function renderToolbar() {
-  const node = $('toolbar');
-  if (!state.data) {
-    node.hidden = true;
-    return;
-  }
-  node.hidden = false;
-  const stats = state.data.stats;
-  const chips = [
-    { key: 'all', label: 'All', count: stats.prs },
-    { key: 'ready', label: 'Ready', count: stats.ready },
-    { key: 'blocked', label: 'Blocked', count: stats.blocked },
-    { key: 'ci', label: 'CI running', count: stats.ciRunning },
-    { key: 'failing', label: 'Failing', count: stats.failing },
-    { key: 'drafts', label: 'Drafts', count: stats.drafts },
-  ];
-  $('chips').innerHTML = chips.map((chip) => {
-    const pressed = state.filters.status === chip.key;
-    return '<button type="button" class="chip" data-action="chip" data-status="' + chip.key + '" aria-pressed="' + pressed + '">'
-      + esc(chip.label) + ' <span class="chip-count">' + chip.count + '</span></button>';
-  }).join('');
-
-  const select = $('repo-select');
-  const current = state.filters.repo;
-  const options = ['<option value="all">All repositories (' + state.data.repos.length + ')</option>']
-    .concat(state.data.repos.map((repo) => {
-      return '<option value="' + esc(repo.nameWithOwner) + '">' + esc(repo.nameWithOwner) + ' (' + repo.prs.length + ')</option>';
-    }));
-  select.innerHTML = options.join('');
-  select.value = current;
-  if (select.value !== current) {
-    state.filters.repo = 'all';
-    select.value = 'all';
-  }
-  $('mine-toggle').checked = state.filters.mine;
-}
-
-function renderMeta() {
-  const updated = $('updated');
-  if (!state.data) {
-    updated.textContent = '';
-    $('ratelimit').textContent = '';
-    return;
-  }
-  const seconds = Math.max(0, Math.round((Date.now() - state.lastLoaded) / 1000));
-  const when = seconds < 5 ? 'just now' : seconds < 60 ? seconds + 's ago' : Math.round(seconds / 60) + 'm ago';
-  updated.textContent = 'Updated ' + when + (state.data.cached ? ' (cached)' : '');
-  const rate = state.data.rateLimit;
-  $('ratelimit').textContent = rate ? 'API ' + rate.remaining + '/' + rate.limit : '';
 }
 
 function renderList() {
@@ -285,7 +174,7 @@ function renderList() {
     return;
   }
 
-  const prs = visiblePrs();
+  const prs = state.data.prs;
   if (prs.length === 0) {
     content.innerHTML = emptyState();
     return;
@@ -479,14 +368,6 @@ function welcome() {
 }
 
 function emptyState() {
-  const filtered = state.filters.q || state.filters.status !== 'all' || state.filters.repo !== 'all' || state.filters.mine;
-  if (filtered) {
-    return '<div class="empty">' + icon('inbox')
-      + '<h3>No pull requests match these filters</h3>'
-      + '<p>Try clearing the search box or switching back to All.</p>'
-      + '<div class="empty-actions"><button type="button" class="btn" data-action="clear-filters">Clear filters</button></div>'
-      + '</div>';
-  }
   return '<div class="empty">' + icon('inbox')
     + '<h3>No open pull requests</h3>'
     + '<p>' + esc(state.data.owner) + ' has ' + state.data.stats.reposScanned + ' repositories and none of them have an open pull request right now.</p>'
@@ -713,49 +594,14 @@ function bind() {
 
   $('theme-btn').addEventListener('click', cycleTheme);
 
-  $('search-input').addEventListener('input', (event) => {
-    state.filters.q = event.target.value;
-    renderList();
-  });
-
-  $('repo-select').addEventListener('change', (event) => {
-    state.filters.repo = event.target.value;
-    renderList();
-  });
-
-  $('mine-toggle').addEventListener('change', (event) => {
-    state.filters.mine = event.target.checked;
-    renderList();
-  });
-
-  $('auto-toggle').addEventListener('change', (event) => {
-    state.autoRefresh = event.target.checked;
-    localStorage.setItem('prdeck.auto', state.autoRefresh ? '1' : '0');
-  });
-
   document.addEventListener('click', (event) => {
     const target = event.target.closest('[data-action]');
     if (!target) return;
     const action = target.dataset.action;
 
-    if (action === 'chip') {
-      state.filters.status = target.dataset.status;
-      renderToolbar();
-      renderList();
-      return;
-    }
-
     if (action === 'recent') {
       $('owner-input').value = target.dataset.owner;
       load(target.dataset.owner);
-      return;
-    }
-
-    if (action === 'clear-filters') {
-      state.filters = { q: '', status: 'all', repo: 'all', mine: false };
-      $('search-input').value = '';
-      renderToolbar();
-      renderList();
       return;
     }
 
@@ -816,10 +662,6 @@ function bind() {
     const tag = document.activeElement ? document.activeElement.tagName : '';
     const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
     if (typing) return;
-    if (event.key === '/') {
-      event.preventDefault();
-      $('search-input').focus();
-    }
     if (event.key === 'r' && state.owner) {
       event.preventDefault();
       load(state.owner, { refresh: true });
@@ -833,12 +675,8 @@ function bind() {
 
 /* ------------------------------------------------------------------- boot */
 
-function tick() {
-  if (state.data) renderMeta();
-}
-
 function maybeAutoRefresh() {
-  if (!state.autoRefresh || !state.owner || state.loading) return;
+  if (!state.owner || state.loading) return;
   if (document.visibilityState !== 'visible') return;
   if (Date.now() - state.lastLoaded < 60000) return;
   load(state.owner, { refresh: true, silent: true });
@@ -846,8 +684,6 @@ function maybeAutoRefresh() {
 
 function init() {
   applyTheme(localStorage.getItem('prdeck.theme') || 'auto');
-  state.autoRefresh = localStorage.getItem('prdeck.auto') !== '0';
-  $('auto-toggle').checked = state.autoRefresh;
 
   const params = new URLSearchParams(window.location.search);
   const saved = params.get('owner') || localStorage.getItem('prdeck.owner') || '';
@@ -859,7 +695,6 @@ function init() {
   if (saved) load(saved);
   else $('owner-input').focus();
 
-  setInterval(tick, 5000);
   setInterval(maybeAutoRefresh, 15000);
 }
 
